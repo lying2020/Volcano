@@ -136,9 +136,10 @@ def eval_model(args):
 
         iter_cnt[i+1] += 1
         
+        gold = line.get('gt_answer') or line.get('gold_answer', '')
         logs.append({
             'question': question,
-            'gold answer': line['gt_answer'],
+            'gold answer': gold,
             'initial answer': initial_answer,
             'feedback': feedback1,
             'revision': revision,
@@ -147,7 +148,7 @@ def eval_model(args):
         line['model_answer'] = outputs
         print('---------------------------------')
         print('question: ', question)
-        print('answer: ', line['gt_answer'])
+        print('answer: ', gold)
         print('initial pred: ', initial_answer)
         print('pred: ', outputs)
         print('---------------------------------')
