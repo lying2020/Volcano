@@ -1,0 +1,2 @@
+# 将测试图片放于此目录，支持 .jpg .png .webp .bmp .gif .tiff 等格式
+# 若存在 default.jpg 或 default.png，run_inference.py 无参数时会优先使用

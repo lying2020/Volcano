@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
 Volcano 单图单问推理脚本。
+默认使用 project.py 中的 volcano_7b_path、llava_v15_7b_path 以及 COCO val2014 示例图。
 用法示例：
+  python run_inference.py
+  python run_inference.py --image_path /path/to/image.jpg --question "图片中有什么？"
   python run_inference.py --model_path kaist-ai/volcano-7b --model_base liuhaotian/llava-v1.5-7b \\
     --image_path /path/to/image.jpg --question "图片中有什么？"
 """
@@ -9,6 +12,23 @@ import argparse
 import os
 import torch
 from PIL import Image
+
+import project
+_DEFAULT_MODEL_PATH = getattr(project, "volcano_7b_path", None)
+_DEFAULT_MODEL_BASE = getattr(project, "llava_v15_7b_path", None)
+_test_dir = getattr(project, "test_images_dir", None)
+_coco_path = getattr(project, "coco_val2014_images_path", None)
+_default_img = None
+if _test_dir and os.path.isfile(os.path.join(_test_dir, "default.jpg")):
+    _default_img = os.path.join(_test_dir, "default.jpg")
+elif _test_dir and os.path.isfile(os.path.join(_test_dir, "default.png")):
+    _default_img = os.path.join(_test_dir, "default.png")
+if _default_img is None and _coco_path:
+    _default_img = os.path.join(_coco_path, "COCO_val2014_000000000042.jpg")
+    _default_img = _default_img if os.path.isfile(_default_img) else None
+_DEFAULT_IMAGE_PATH = _default_img
+
+_DEFAULT_QUESTION = "What is in this image?"
 
 from llava.constants import (
     IMAGE_TOKEN_INDEX,
@@ -108,15 +128,30 @@ def generate_one(
 
 def main():
     parser = argparse.ArgumentParser(description="Volcano 单图单问推理")
-    parser.add_argument("--model_path", type=str, required=True, help="Volcano 权重路径或 HuggingFace 仓库名")
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        default=_DEFAULT_MODEL_PATH,
+        help="Volcano 权重路径或 HuggingFace 仓库名（默认从 project.volcano_7b_path 读取）",
+    )
     parser.add_argument(
         "--model_base",
         type=str,
-        required=True,
-        help="LLaVA-1.5 基座路径或 HuggingFace 仓库名（如 liuhaotian/llava-v1.5-7b）",
+        default=_DEFAULT_MODEL_BASE,
+        help="LLaVA-1.5 基座路径或 HuggingFace 仓库名（默认从 project.llava_v15_7b_path 读取）",
     )
-    parser.add_argument("--image_path", type=str, required=True, help="输入图片路径或 URL")
-    parser.add_argument("--question", type=str, required=True, help="问题文本")
+    parser.add_argument(
+        "--image_path",
+        type=str,
+        default=_DEFAULT_IMAGE_PATH,
+        help="输入图片路径或 URL（默认 COCO val2014 示例图，需 project.py 中 coco_val2014_images_path 可用）",
+    )
+    parser.add_argument(
+        "--question",
+        type=str,
+        default=_DEFAULT_QUESTION,
+        help="问题文本（默认: What is in this image?）",
+    )
     parser.add_argument(
         "--max_revision_rounds",
         type=int,
@@ -126,6 +161,14 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--conv_mode", type=str, default=None)
     args = parser.parse_args()
+
+    if not args.model_path or not args.model_base:
+        parser.error("未配置模型路径。请在 project.py 中设置 volcano_7b_path 与 llava_v15_7b_path，或通过 --model_path / --model_base 传入。")
+    if not args.image_path or not os.path.isfile(args.image_path):
+        parser.error(
+            "未指定有效图片。请通过 --image_path 传入本地图片路径；"
+            "或将测试图放在 test_images/ 下并命名为 default.jpg / default.png，或设置 project.py 中 coco_val2014_images_path。"
+        )
 
     disable_torch_init()
     model_name = get_model_name_from_path(args.model_path)
